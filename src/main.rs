@@ -25,7 +25,7 @@ pub struct Args {
     interval: Duration,
 
     /// Enable verbose output
-    #[clap(short, long)]
+    #[clap(short, long, env)]
     verbose: bool,
 }
 
@@ -53,6 +53,8 @@ fn run_loop(cfg: &Args) -> Result<(), Box<dyn std::error::Error>> {
         let peers = get_peers(&format!("{}{}.conf", cfg.directory, cfg.wireguard_interface))?
             .into_iter()
             .filter(|peer| matches!(peer.endpoint, Endpoint::Hostname { .. }));
+
+        log::debug!("{:?}", peers);
 
         // Update all peers
         for peer in peers {
