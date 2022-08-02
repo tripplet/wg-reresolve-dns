@@ -16,6 +16,10 @@ pub struct Args {
     #[clap()]
     wireguard_interface: String,
 
+    /// Overwrite default directory
+    #[clap(long, env, default_value("/etc/wireguard/"))]
+    directory: String,
+
     /// Interval to check/update the endoints, with units 'ms', 's', 'm', 'h', e.g. 5m30s
     #[clap(long, env, default_value("5m"), parse(try_from_str = humantime::parse_duration))]
     interval: Duration,
@@ -46,7 +50,7 @@ fn run_loop(cfg: &Args) -> Result<(), Box<dyn std::error::Error>> {
 
         // Re-read the wireguard config because it might have been changed while sleeping
         // + filter out peers to have only the ones with a hostname defined
-        let peers = get_peers(&format!("/etc/wireguard/{}.conf", cfg.wireguard_interface))?
+        let peers = get_peers(&format!("{}{}.conf", cfg.directory, cfg.wireguard_interface))?
             .into_iter()
             .filter(|peer| matches!(peer.endpoint, Endpoint::Hostname { .. }));
 
