@@ -26,10 +26,7 @@ pub fn get_peers(config_filepath: &str) -> Result<Vec<Peer>, Box<dyn Error>> {
         // Map to a Peer struct.
         .map(|(_, prop)| {
             Ok(Peer {
-                public_key: prop
-                    .get("PublicKey")
-                    .ok_or("Missing PublicKey")?
-                    .to_string(),
+                public_key: prop.get("PublicKey").ok_or("Missing PublicKey")?.to_string(),
                 endpoint: prop.get("Endpoint").unwrap().parse()?,
             })
         })
