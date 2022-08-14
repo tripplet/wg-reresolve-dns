@@ -1,12 +1,14 @@
 mod wireguard_config;
 
-use std::{process::Command, thread::sleep, time::Duration};
+use std::{thread::sleep, time::Duration};
 
+//use anyhow::{Context, Result};
 use clap::Parser;
 use log::LevelFilter;
 use simple_logger::SimpleLogger;
+use wireguard_uapi::{DeviceInterface, WgSocket};
 
-use crate::wireguard_config::{get_peers, Endpoint};
+use crate::wireguard_config::update_endpoints;
 
 // The main config
 #[derive(Debug, Parser)]
@@ -16,7 +18,7 @@ pub struct Args {
     #[clap()]
     wireguard_interface: String,
 
-    /// Overwrite default directory
+    /// Directory of wireguard configs
     #[clap(long, env, default_value("/etc/wireguard/"))]
     directory: String,
 
@@ -29,7 +31,7 @@ pub struct Args {
     verbose: bool,
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() {
     let cfg = Args::parse(); // Parse arguments
 
     // Initialize logger
@@ -41,34 +43,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     log::debug!("Config: {:?}", cfg);
-    run_loop(&cfg)
+
+    // Run the endless loop
+    let error = run_loop(&cfg);
+    log::error!("{}", error.unwrap_err());
 }
 
 fn run_loop(cfg: &Args) -> Result<(), Box<dyn std::error::Error>> {
+    let mut wg = WgSocket::connect()?;
+
+    // Check the device is available and we have access to it (CAP_NET_ADMIN)
+    wg.get_device(DeviceInterface::from_name(&cfg.wireguard_interface))?;
+
     loop {
         log::info!("Checking endpoints");
-
-        // Re-read the wireguard config because it might have been changed while sleeping
-        // + filter out peers to have only the ones with a hostname defined
-        let peers = get_peers(&format!("{}{}.conf", cfg.directory, cfg.wireguard_interface))?
-            .into_iter()
-            .filter(|peer| matches!(peer.endpoint, Endpoint::Hostname { .. }));
-
-        log::debug!("{:?}", peers);
-
-        // Update all peers
-        for peer in peers {
-            let result = Command::new("/usr/bin/wg")
-                .arg("set")
-                .arg(&cfg.wireguard_interface)
-                .arg("peer")
-                .arg(&peer.public_key)
-                .arg("endpoint")
-                .arg(format!("{}", peer.endpoint))
-                .output()?;
-
-            log::info!("Update of {pub_key}: {result:?}", pub_key = &peer.public_key);
-        }
+        update_endpoints(&mut wg, cfg)?;
 
         sleep(cfg.interval);
     }
