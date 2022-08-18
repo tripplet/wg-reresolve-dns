@@ -1,6 +1,6 @@
 mod wireguard_config;
 
-use std::{thread::sleep, time::Duration};
+use std::{error::Error, thread::sleep, time::Duration};
 
 //use anyhow::{Context, Result};
 use clap::Parser;
@@ -8,7 +8,7 @@ use log::LevelFilter;
 use simple_logger::SimpleLogger;
 use wireguard_uapi::{DeviceInterface, WgSocket};
 
-use crate::wireguard_config::update_endpoints;
+use wireguard_config::{update_endpoints, UpdateError};
 
 // The main config
 #[derive(Debug, Parser)]
@@ -49,7 +49,7 @@ fn main() {
     log::error!("{}", error.unwrap_err());
 }
 
-fn run_loop(cfg: &Args) -> Result<(), Box<dyn std::error::Error>> {
+fn run_loop(cfg: &Args) -> Result<(), Box<dyn Error>> {
     let mut wg = WgSocket::connect()?;
 
     // Check the device is available and we have access to it (CAP_NET_ADMIN)
@@ -57,7 +57,23 @@ fn run_loop(cfg: &Args) -> Result<(), Box<dyn std::error::Error>> {
 
     loop {
         log::info!("Checking endpoints");
-        update_endpoints(&mut wg, cfg)?;
+        let res = update_endpoints(&mut wg, cfg);
+
+        match res {
+            Err(
+                UpdateError::ConfigFileError(..)
+                | UpdateError::ErrorSettingDevice(..)
+                | UpdateError::InvalidPublicKey(..),
+            ) => {
+                // Exit loop/program in case of critical errors
+                return Err(Box::new(res.unwrap_err()));
+            }
+            Err(e) => {
+                // Log all other errors as warnings
+                log::warn!("{e}");
+            }
+            Ok(_) => {}
+        }
 
         sleep(cfg.interval);
     }

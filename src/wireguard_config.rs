@@ -1,6 +1,6 @@
-use std::{error::Error, fmt::Display, net::SocketAddr, net::ToSocketAddrs, str::FromStr};
+use std::{error::Error, fmt, fmt::Display, net::SocketAddr, net::ToSocketAddrs, str::FromStr};
 
-use crate::Args;
+use super::Args;
 
 use ini::Ini;
 use wireguard_uapi::linux::set::{Device, Peer, WgPeerF};
@@ -20,6 +20,22 @@ pub enum Endpoint {
     SocketAddr(SocketAddr),
 }
 
+#[derive(Debug)]
+pub enum UpdateError {
+    ConfigFileError(String),
+    MissingWireguardInterface(String),
+    InvalidPublicKey(String),
+    ErrorSettingDevice(String),
+}
+
+impl Display for UpdateError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+
+impl Error for UpdateError {}
+
 /// Get all peers from a wireguard config file which have a endpoint defined.
 pub fn get_cfg_peers(config_filepath: &str) -> Result<Vec<CfgPeer>, Box<dyn Error>> {
     let conf = Ini::load_from_file(config_filepath)?;
@@ -37,19 +53,16 @@ pub fn get_cfg_peers(config_filepath: &str) -> Result<Vec<CfgPeer>, Box<dyn Erro
         .collect()
 }
 
-pub fn update_endpoints(wg: &mut WgSocket, cfg: &Args) -> Result<(), Box<dyn Error>> {
+pub fn update_endpoints(wg: &mut WgSocket, cfg: &Args) -> Result<(), UpdateError> {
     // Try get the device
     // This is done for every check as the device might me unavailable
     // if the wireguard interface is down temporarily
     let device = match wg.get_device(DeviceInterface::from_name(&cfg.wireguard_interface)) {
         Err(err) => {
-            // Only report a warning retry next interval
-            log::warn!(
-                "Unable to get wireguard interface {}: {}",
-                &cfg.wireguard_interface,
-                err
-            );
-            return Ok(());
+            return Err(UpdateError::MissingWireguardInterface(format!(
+                "Unable to get wireguard interface {}: {err}",
+                &cfg.wireguard_interface
+            )));
         }
         Ok(dev) => dev,
     };
@@ -57,7 +70,7 @@ pub fn update_endpoints(wg: &mut WgSocket, cfg: &Args) -> Result<(), Box<dyn Err
     // Re-read the wireguard config because it might have been changed while sleeping
     // + filter out peers to have only the ones with a hostname defined
     let peers = get_cfg_peers(&format!("{}{}.conf", cfg.directory, cfg.wireguard_interface))
-        .map_err(|e| format!("Unable to read config file: {e}"))?
+        .map_err(|e| UpdateError::ConfigFileError(format!("Unable to read config file: {e}")))?
         .into_iter()
         .filter(|peer| matches!(peer.endpoint, Endpoint::Hostname { .. }));
 
@@ -72,7 +85,7 @@ pub fn update_endpoints(wg: &mut WgSocket, cfg: &Args) -> Result<(), Box<dyn Err
             // Resolve the endpoint address
             match peer.endpoint.resolve() {
                 Err(err) => {
-                    log::warn!("Unable to resolve endpoint of peer {}: {}", &peer.public_key, err);
+                    log::warn!("Unable to resolve endpoint of peer {}: {err}", &peer.public_key);
                     continue;
                 }
                 Ok(new_endpoint) => {
@@ -106,15 +119,18 @@ pub fn update_endpoints(wg: &mut WgSocket, cfg: &Args) -> Result<(), Box<dyn Err
     }
 
     // Update the peer endpoints
-    wg.set_device(device_update)?;
+    wg.set_device(device_update)
+        .map_err(|e| UpdateError::ErrorSettingDevice(format!("{e:#}")))?;
     Ok(())
 }
 
 impl CfgPeer {
     /// Get the publiy key as raw slice
-    pub fn get_raw_public_key(&self) -> Result<[u8; 32], String> {
+    pub fn get_raw_public_key(&self) -> Result<[u8; 32], UpdateError> {
         match base64::decode(&self.public_key) {
-            Err(err) => Err(format!("Unable to parse wireguard public key: {}", err)),
+            Err(err) => Err(UpdateError::InvalidPublicKey(format!(
+                "Unable to parse wireguard public key: {err}"
+            ))),
             Ok(vec) => {
                 let mut key = [0u8; 32];
                 key.copy_from_slice(&vec);
