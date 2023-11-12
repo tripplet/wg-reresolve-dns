@@ -86,7 +86,7 @@ pub fn update_endpoints(wg: &mut WgSocket, cfg: &Args) -> Result<(), UpdateError
             // Resolve the endpoint address
             match peer.endpoint.resolve() {
                 Err(err) => {
-                    log::warn!("Unable to resolve endpoint of peer {}: {err}", &peer.public_key);
+                    log::warn!("Unable to resolve endpoint '{}': {err}", &peer.endpoint);
                     continue;
                 }
                 Ok(new_endpoint) => {
