@@ -2,6 +2,7 @@ use std::{error::Error, fmt, fmt::Display, net::SocketAddr, net::ToSocketAddrs, 
 
 use super::Args;
 
+use base64::{engine::general_purpose, Engine as _};
 use ini::Ini;
 use wireguard_uapi::linux::set::{Device, Peer, WgPeerF};
 use wireguard_uapi::{DeviceInterface, WgSocket};
@@ -127,7 +128,7 @@ pub fn update_endpoints(wg: &mut WgSocket, cfg: &Args) -> Result<(), UpdateError
 impl CfgPeer {
     /// Get the publiy key as raw slice
     pub fn get_raw_public_key(&self) -> Result<[u8; 32], UpdateError> {
-        match base64::decode(&self.public_key) {
+        match general_purpose::STANDARD.decode(&self.public_key) {
             Err(err) => Err(UpdateError::InvalidPublicKey(format!(
                 "Unable to parse wireguard public key: {err}"
             ))),
@@ -199,14 +200,34 @@ mod tests {
     }
 
     #[test]
+    fn raw_key() {
+        let endpoints = get_cfg_peers("test-data/multiple_peers.conf").unwrap();
+
+        assert_eq!(
+            endpoints[0].get_raw_public_key().unwrap(),
+            [
+                112, 196, 234, 101, 88, 72, 28, 170, 120, 133, 247, 77, 161, 77, 92, 89, 216, 186, 31, 234, 205, 19,
+                51, 85, 67, 252, 248, 138, 193, 194, 78, 98
+            ]
+        );
+        assert_eq!(
+            endpoints[1].get_raw_public_key().unwrap(),
+            [
+                208, 233, 177, 169, 89, 247, 101, 102, 224, 12, 199, 150, 190, 132, 253, 203, 122, 185, 139, 164, 133,
+                187, 165, 156, 16, 234, 135, 203, 244, 251, 139, 115
+            ]
+        );
+    }
+
+    #[test]
     fn multiple_peers() {
         let endpoints = get_cfg_peers("test-data/multiple_peers.conf").unwrap();
 
         assert_eq!(
             endpoints,
             [
-                peer!("1213=", "example.com:51820"),
-                peer!("peer2", "example2.com:51820"),
+                peer!("cMTqZVhIHKp4hfdNoU1cWdi6H+rNEzNVQ/z4isHCTmI=", "example.com:51820"),
+                peer!("0OmxqVn3ZWbgDMeWvoT9y3q5i6SFu6WcEOqHy/T7i3M=", "example2.com:51820"),
             ]
         );
     }

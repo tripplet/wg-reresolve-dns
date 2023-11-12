@@ -23,7 +23,7 @@ pub struct Args {
     directory: String,
 
     /// Interval to check/update the endoints, with units 'ms', 's', 'm', 'h', e.g. 5m30s
-    #[clap(long, env, default_value("5m"), parse(try_from_str = humantime::parse_duration))]
+    #[clap(long, env, default_value("5m"), value_parser = humantime::parse_duration)]
     interval: Duration,
 
     /// Enable verbose output

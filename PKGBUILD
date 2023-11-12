@@ -1,5 +1,5 @@
 pkgname=wg-reresolve-dns
-pkgver=2.0.1
+pkgver=2.0.2
 pkgrel=1
 pkgdesc='Periodically re-resolve DNS of endpoints for Wireguard interfaces'
 arch=('x86_64' 'armv7h' 'aarch64')
