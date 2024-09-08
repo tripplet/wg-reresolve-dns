@@ -1,7 +1,7 @@
 [package]
 name = "wg-reresolve-dns"
 description = "Re-resolve DNS of endpoints for Wireguard interfaces"
-version = "2.0.3"
+version = "2.1.0"
 edition = "2021"
 
 [dependencies]
