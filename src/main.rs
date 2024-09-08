@@ -6,7 +6,7 @@ use std::{error::Error, thread::sleep, time::Duration};
 use clap::Parser;
 use log::LevelFilter;
 use simple_logger::SimpleLogger;
-use wireguard_uapi::{DeviceInterface, WgSocket};
+use wireguard_uapi::WgSocket;
 
 use wireguard_config::{update_endpoints, UpdateError};
 
@@ -14,9 +14,9 @@ use wireguard_config::{update_endpoints, UpdateError};
 #[derive(Debug, Parser)]
 #[clap(author, version, about, long_about = None)]
 pub struct Args {
-    /// The wireguard interface to use
+    /// The wireguard interfaces to use
     #[clap()]
-    wireguard_interface: String,
+    wireguard_interfaces: Vec<String>,
 
     /// Directory of wireguard configs
     #[clap(long, env, default_value("/etc/wireguard/"))]
@@ -52,27 +52,32 @@ fn main() {
 fn run_loop(cfg: &Args) -> Result<(), Box<dyn Error>> {
     let mut wg = WgSocket::connect()?;
 
-    // Check the device is available and we have access to it (CAP_NET_ADMIN)
-    wg.get_device(DeviceInterface::from_name(&cfg.wireguard_interface))?;
+    let interface_list: Vec<_> = cfg.wireguard_interfaces
+        .iter()
+        .map(|iface| (iface, format!("{}{iface}.conf", cfg.directory)))
+        .collect();
 
     loop {
         log::info!("Checking endpoints");
-        let res = update_endpoints(&mut wg, cfg);
 
-        match res {
-            Err(
-                UpdateError::ConfigFileError(..)
-                | UpdateError::ErrorSettingDevice(..)
-                | UpdateError::InvalidPublicKey(..),
-            ) => {
-                // Exit loop/program in case of critical errors
-                return Err(Box::new(res.unwrap_err()));
+        for (interface, file) in &interface_list {
+            let res = update_endpoints(&mut wg, interface, file);
+
+            match res {
+                Err(
+                    UpdateError::ConfigFileError(..)
+                    | UpdateError::ErrorSettingDevice(..)
+                    | UpdateError::InvalidPublicKey(..),
+                ) => {
+                    // Exit loop/program in case of critical errors
+                    return Err(Box::new(res.unwrap_err()));
+                }
+                Err(e) => {
+                    // Log all other errors as warnings
+                    log::warn!("{e}");
+                }
+                Ok(()) => {}
             }
-            Err(e) => {
-                // Log all other errors as warnings
-                log::warn!("{e}");
-            }
-            Ok(_) => {}
         }
 
         sleep(cfg.interval);
