@@ -1,3 +1,4 @@
+mod wireguard_api;
 mod wireguard_config;
 
 use std::{error::Error, thread::sleep, time::Duration};
@@ -6,9 +7,8 @@ use std::{error::Error, thread::sleep, time::Duration};
 use clap::Parser;
 use log::LevelFilter;
 use simple_logger::SimpleLogger;
-use wireguard_uapi::WgSocket;
 
-use wireguard_config::{update_endpoints, UpdateError};
+use wireguard_api::{Client, UpdateError};
 
 // The main config
 #[derive(Debug, Parser)]
@@ -42,7 +42,7 @@ fn main() {
         log::set_max_level(LevelFilter::Warn);
     }
 
-    log::debug!("Config: {:?}", cfg);
+    log::debug!("Config: {cfg:?}");
 
     // Run the endless loop
     let error = run_loop(&cfg);
@@ -50,9 +50,10 @@ fn main() {
 }
 
 fn run_loop(cfg: &Args) -> Result<(), Box<dyn Error>> {
-    let mut wg = WgSocket::connect()?;
+    let mut wg = Client::connect()?;
 
-    let interface_list: Vec<_> = cfg.wireguard_interfaces
+    let interface_list: Vec<_> = cfg
+        .wireguard_interfaces
         .iter()
         .map(|iface| (iface, format!("{}{iface}.conf", cfg.directory)))
         .collect();
@@ -61,7 +62,7 @@ fn run_loop(cfg: &Args) -> Result<(), Box<dyn Error>> {
         log::info!("Checking endpoints");
 
         for (interface, file) in &interface_list {
-            let res = update_endpoints(&mut wg, interface, file);
+            let res = wg.update_endpoints(interface, file);
 
             match res {
                 Err(

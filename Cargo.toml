@@ -2,7 +2,7 @@
 name = "wg-reresolve-dns"
 description = "Re-resolve DNS of endpoints for Wireguard interfaces"
 version = "2.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 clap = { version = "4.5", features = ["derive", "env"] }
