@@ -1,5 +1,5 @@
 pkgname=wg-reresolve-dns
-pkgver=2.1.0
+pkgver=2.2.0
 pkgrel=1
 pkgdesc='Periodically re-resolve DNS of endpoints for Wireguard interfaces'
 arch=('x86_64' 'armv7h' 'aarch64')
@@ -7,7 +7,7 @@ depends=()
 makedepends=(rust)
 
 build() {
-  cargo +nightly build --release --locked
+  cargo build --release --locked
   strip ../target/release/wg-reresolve-dns
 }
 

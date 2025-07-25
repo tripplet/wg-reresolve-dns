@@ -1,7 +1,8 @@
+mod networkd;
 mod wireguard_api;
 mod wireguard_config;
 
-use std::{error::Error, thread::sleep, time::Duration};
+use std::{error::Error, process::ExitCode, thread::sleep, time::Duration};
 
 //use anyhow::{Context, Result};
 use clap::Parser;
@@ -14,13 +15,17 @@ use wireguard_api::{Client, UpdateError};
 #[derive(Debug, Parser)]
 #[clap(author, version, about, long_about = None)]
 pub struct Args {
-    /// The wireguard interfaces to use
+    /// The wireguard interfaces to use if endswith with -netdev then it is a networkd config file
     #[clap()]
     wireguard_interfaces: Vec<String>,
 
     /// Directory of wireguard configs
     #[clap(long, env, default_value("/etc/wireguard/"))]
-    directory: String,
+    wireguard_directory: String,
+
+    /// Directory of wireguard configs
+    #[clap(long, env, default_value("/etc/systemd/network/"))]
+    networkd_directory: String,
 
     /// Interval to check/update the endoints, with units 'ms', 's', 'm', 'h', e.g. 5m30s
     #[clap(long, env, default_value("5m"), value_parser = humantime::parse_duration)]
@@ -31,7 +36,7 @@ pub struct Args {
     verbose: bool,
 }
 
-fn main() {
+fn main() -> ExitCode {
     let cfg = Args::parse(); // Parse arguments
 
     // Initialize logger
@@ -44,18 +49,43 @@ fn main() {
 
     log::debug!("Config: {cfg:?}");
 
+    if cfg.wireguard_interfaces.is_empty() {
+        log::error!("No wireguard interface specified");
+        return ExitCode::FAILURE;
+    }
+
     // Run the endless loop
     let error = run_loop(&cfg);
     log::error!("{}", error.unwrap_err());
+    ExitCode::FAILURE
 }
 
 fn run_loop(cfg: &Args) -> Result<(), Box<dyn Error>> {
     let mut wg = Client::connect()?;
 
+    // If any networkd devices are used, build a map of networkd devices to wireguard devices
+    let networkd_devices = if cfg.wireguard_interfaces.iter().any(|iface| iface.ends_with("-netdev")) {
+        Some(networkd::get_networkd_devices(&cfg.networkd_directory))
+    } else {
+        None
+    };
+
     let interface_list: Vec<_> = cfg
         .wireguard_interfaces
         .iter()
-        .map(|iface| (iface, format!("{}{iface}.conf", cfg.directory)))
+        .filter_map(|iface| {
+            if iface.ends_with("-netdev") {
+                // Find the corresponding networkd file
+                let Some(device_config_file) = networkd_devices.as_ref().and_then(|dev_map| dev_map.get(iface)) else {
+                    log::error!("Unable to find device config file for {iface}");
+                    return None;
+                };
+
+                Some((iface, device_config_file.clone()))
+            } else {
+                Some((iface, format!("{}{iface}.conf", cfg.wireguard_directory)))
+            }
+        })
         .collect();
 
     loop {

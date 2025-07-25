@@ -22,8 +22,8 @@ pub fn get_cfg_peers(config_filepath: &str) -> Result<Vec<CfgPeer>, Box<dyn Erro
     let conf = Ini::load_from_file(config_filepath)?;
 
     conf.iter()
-        // Filter for all peers which have a endpoint defined.
-        .filter(|(sec, prop)| sec.unwrap_or("") == "Peer" && prop.get("Endpoint").is_some())
+        .filter_map(|(sec, prop)| sec.map(|sec| (sec, prop)))
+        .filter(|(sec, prop)| (*sec == "Peer" || *sec == "WireGuardPeer") && prop.get("Endpoint").is_some())
         // Map to a Peer struct.
         .map(|(_, prop)| {
             Ok(CfgPeer {
@@ -35,7 +35,7 @@ pub fn get_cfg_peers(config_filepath: &str) -> Result<Vec<CfgPeer>, Box<dyn Erro
 }
 
 impl CfgPeer {
-    /// Get the publiy key as raw slice
+    /// Get the public key as raw slice
     pub fn get_raw_public_key(&self) -> Result<[u8; 32], String> {
         match general_purpose::STANDARD.decode(&self.public_key) {
             Err(err) => Err(format!("Unable to parse wireguard public key: {err}")),

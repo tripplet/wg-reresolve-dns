@@ -47,9 +47,7 @@ impl Client {
 
         // Collect data to update peers
         for peer in peers {
-            let raw_public_key = peer
-                .get_raw_public_key()
-                .map_err(|err| UpdateError::InvalidPublicKey(err))?;
+            let raw_public_key = peer.get_raw_public_key().map_err(UpdateError::InvalidPublicKey)?;
 
             // Find matching peer in active interface
             if let Some(active_peer) = device.peers.iter().find(|&p| p.public_key == raw_public_key) {
@@ -57,7 +55,6 @@ impl Client {
                 match peer.endpoint.resolve() {
                     Err(err) => {
                         log::warn!("Unable to resolve endpoint '{}': {err}", &peer.endpoint);
-                        continue;
                     }
                     Ok(new_endpoint) => {
                         // Check if the endpoint address has changed
@@ -90,7 +87,8 @@ impl Client {
         }
 
         // Update the peer endpoints
-        self.0.set_device(device_update)
+        self.0
+            .set_device(device_update)
             .map_err(|e| UpdateError::ErrorSettingDevice(format!("{e:#}")))?;
         Ok(())
     }
