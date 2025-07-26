@@ -74,10 +74,10 @@ fn run_loop(cfg: &Args) -> Result<(), Box<dyn Error>> {
         .wireguard_interfaces
         .iter()
         .filter_map(|iface| {
-            if iface.ends_with("-netdev") {
+            if let Some(iface) = iface.strip_suffix("-netdev") {
                 // Find the corresponding networkd file
                 let Some(device_config_file) = networkd_devices.as_ref().and_then(|dev_map| dev_map.get(iface)) else {
-                    log::error!("Unable to find device config file for {iface}");
+                    log::error!("Unable to find device config file for networkd {iface}");
                     return None;
                 };
 

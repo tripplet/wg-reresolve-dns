@@ -1,0 +1,24 @@
+[Unit]
+Description=Re-resolve DNS of endpoints for Wireguard interface %I
+After=sys-subsystem-net-devices-%i.device
+BindsTo=sys-subsystem-net-devices-%i.device
+
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+EnvironmentFile=-/etc/conf.d/wg-reresolve-dns
+ExecStart=/usr/bin/wg-reresolve-dns %i-netdev
+Restart=on-failure
+
+ProtectHome=yes
+ProtectSystem=strict
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectClock=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+PrivateDevices=yes
+CapabilityBoundingSet=CAP_NET_ADMIN

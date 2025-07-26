@@ -470,7 +470,7 @@ checksum = "ccf3ec651a847eb01de73ccad15eb7d99f80485de043efb2f370cd654f4ea44b"
 
 [[package]]
 name = "wg-reresolve-dns"
-version = "2.2.0"
+version = "2.2.1"
 dependencies = [
  "base64",
  "clap",
