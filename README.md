@@ -14,6 +14,12 @@ makepkg -si
 
 Enable and start the service for the desired WireGuard interface:
 
+For wg-quick use
 ```sh
-sudo systemctl enable --now wg-reresolve-dns@wg0.service
+sudo systemctl enable --now wg-quick-reresolve-dns@wg0.service
+````
+
+For networkd use
+```sh
+sudo systemctl enable --now wg-networkd-reresolve-dns@wg0.service
 ````
