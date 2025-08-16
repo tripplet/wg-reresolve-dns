@@ -49,6 +49,14 @@ fn main() -> ExitCode {
 
     log::debug!("Config: {cfg:?}");
 
+    if cfg.wireguard_interfaces.is_empty()
+        && let Ok(mut route_socket) = wireguard_uapi::RouteSocket::connect()
+        && let Ok(wg_interfaces) = route_socket.list_device_names()
+    {
+        log::info!("No wireguard interfaces specified, using all available interfaces: {wg_interfaces:?}");
+        cfg.wireguard_interfaces = wg_interfaces;
+    }
+
     if cfg.wireguard_interfaces.is_empty() {
         log::error!("No wireguard interface specified");
         return ExitCode::FAILURE;
