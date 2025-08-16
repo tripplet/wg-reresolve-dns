@@ -5,13 +5,13 @@ version = "2.2.1"
 edition = "2024"
 
 [dependencies]
+base64 = "0.22"
 clap = { version = "4.5", features = ["derive", "env"] }
-rust-ini = "0.21"
-wireguard-uapi = "3.0"
 humantime = "2.2"
 log = "0.4"
-base64 = "0.22"
+rust-ini = "0.21"
 simple_logger = {version = "5.0", default-features = false }
+wireguard-uapi = "3.0"
 
 [profile.release]
 opt-level = 3
