@@ -37,7 +37,7 @@ pub struct Args {
 }
 
 fn main() -> ExitCode {
-    let cfg = Args::parse(); // Parse arguments
+    let mut cfg = Args::parse(); // Parse arguments
 
     // Initialize logger
     SimpleLogger::new().init().unwrap();
@@ -58,7 +58,7 @@ fn main() -> ExitCode {
     }
 
     if cfg.wireguard_interfaces.is_empty() {
-        log::error!("No wireguard interface specified");
+        log::error!("No wireguard interfaces specified, exiting.");
         return ExitCode::FAILURE;
     }
 
