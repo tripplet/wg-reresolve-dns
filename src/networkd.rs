@@ -4,7 +4,7 @@ use ini::Ini;
 
 /// Get all network devices from the specified directory.
 ///
-/// Returns a HashMap where the key is the device name and the value is the path to the netdev file.
+/// Returns a `HashMap` where the key is the device name and the value is the path to the netdev file.
 pub fn get_networkd_devices(directory: &str) -> HashMap<String, String> {
     let mut devices = HashMap::new();
 
